@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pH试纸智能分析系统 - Web版</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #006400;
+            --primary-light: #198754;
+            --light-bg: #f8f9fa;
+            --highlight: #FFFF99;
+            --border: #dee2e6;
+            --error: #dc3545;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .app-container {
+            max-width: 1600px;
+            min-height: 800px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.15);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 头部样式 */
+        .header {
+            background: linear-gradient(to right, var(--primary-color), #004d21);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 26px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        /* 主体布局 */
+        .main-content {
+            display: flex;
+            flex: 1;
+            min-height: 700px;
+        }
+        
+        /* 左侧面板 */
+        .left-panel {
+            width: 40%;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+        }
+        
+        /* 图像显示区域 */
+        .image-container {
+            position: relative;
+            flex: 1;
+            background: #eee;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow: hidden;
+            min-height: 350px;
+        }
+        
+        #dropArea {
+            width: 100%;
+            height: 100%;
+            border: 2px dashed #999;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            background: white;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        #dropArea.highlight {
+            background-color: #e9ffe9;
+            border-color: var(--primary-light);
+        }
+        
+        #canvasContainer {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #imageCanvas {
+            max-width: 100%;
+            max-height: 100%;
+            cursor: crosshair;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        
+        .pixel-indicator {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            border: 2px solid red;
+            background: rgba(255, 0, 0, 0.3);
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        /* 控制区域 */
+        .controls {
+            padding: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 40%;
+        }
+        
+        .btn {
+            padding: 12px 15px;
+            background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            text-align: center;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn:hover {
+            background: linear-gradient(to bottom, #e9ecef, #dae0e5);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .btn img {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(to bottom, var(--primary-light), var(--primary-color));
+            color: white;
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(to bottom, #157347, #006400);
+        }
+        
+        .info-group {
+            flex: 1;
+            background: var(--light-bg);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: Consolas, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        #xyzValue, #featureValue {
+            margin-bottom: 10px;
+            word-break: break-all;
+        }
+        
+        .footer {
+            padding: 15px 20px;
+            background: var(--highlight);
+            text-align: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        /* 右侧面板 */
+        .right-panel {
+            width: 60%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .equation-container {
+            background: white;
+            padding: 25px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .equation-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+        
+        .equation-box {
+            background: var(--light-bg);
+            border-radius: 8px;
+            padding: 20px;
+            font-family: Consolas, monospace;
+            font-size: 15px;
+            line-height: 1.8;
+        }
+        
+        .chart-container {
+            flex: 1;
+            padding: 25px 25px 0 25px;
+            min-height: 350px;
+        }
+        
+        .chart-wrapper {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            height: 100%;
+            padding: 15px;
+        }
+        
+        .chart-header {
+            text-align: center;
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        #chartCanvas {
+            width: 100%;
+            height: calc(100% - 40px);
+        }
+        
+        .results {
+            padding: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border);
+        }
+        
+        #phResult {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+        }
+        
+        .ph-value {
+            background: #006400;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 30px;
+            margin-left: 10px;
+            font-size: 26px;
+        }
+        
+        #tempValue {
+            font-size: 20px;
+            color: #555;
+        }
+        
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: white;
+            width: 500px;
+            max-width: 90%;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+        }
+        
+        .modal-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .modal-body {
+            padding: 25px;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        
+        .modal-footer {
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .error-message {
+            color: var(--error);
+            padding: 5px;
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        .color-preview {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            margin-left: 10px;
+            border: 1px solid #ddd;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 1200px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .left-panel, .right-panel {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>基于pH试纸 XYZ的pH值测量系统 (Web版)</h1>
+            <p>西北大学——电化学科学和微反应技术实验室</p>
+        </div>
+        
+        <div class="main-content">
+            <!-- 左侧面板 -->
+            <div class="left-panel">
+                <!-- 图像显示区域 -->
+                <div class="image-container">
+                    <div id="dropArea">
+                        <div id="canvasContainer" style="display:none;">
+                            <canvas id="imageCanvas"></canvas>
+                            <div id="pixelIndicator" class="pixel-indicator" style="display:none;"></div>
+                        </div>
+                        <div id="dropText">
+                            <p>拖放pH试纸图片到此处<br>或点击选择图片</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 控制区域 -->
+                <div class="controls">
+                    <div class="btn-group">
+                        <button id="loadImageBtn" class="btn btn-primary">
+                            <span>加载试纸图片</span>
+                        </button>
+                        <button id="calibrateBtn" class="btn">
+                            <span>校准系统</span>
+                        </button>
+                    </div>
+                    
+                    <div class="info-group">
+                        <div id="xyzValue">XYZ值：(0.00, 0.00, 0.00)</div>
+                        <div id="featureValue">特征值：等待数据...</div>
+                        <div id="pixelColor"></div>
+                    </div>
+                </div>
+                
+                <!-- 底部 -->
+                <div class="footer">
+                    西北大学——电化学科学和微反应技术实验室
+                </div>
+            </div>
+            
+            <!-- 右侧面板 -->
+            <div class="right-panel">
+                <!-- 回归方程 -->
+                <div class="equation-container">
+                    <div class="equation-title">多元非线性回归模型</div>
+                    <div class="equation-box">
+                        pH = 2.8350 + 0.2462·X - 0.9313·Y + 6.8470·Z +<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.1505·X² - 0.2877·XY - 0.6802·XZ +<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.1862·Y² + 0.4183·YZ - 0.6433·Z²<br>
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(R² = 0.9532)
+                    </div>
+                </div>
+                
+                <!-- 图表 -->
+                <div class="chart-container">
+                    <div class="chart-wrapper">
+                        <div class="chart-header">pH预测曲线 (固定Y/Z时X的变化影响)</div>
+                        <canvas id="chartCanvas"></canvas>
+                    </div>
+                </div>
+                
+                <!-- 结果区域 -->
+                <div class="results">
+                    <div id="phResult">当前pH值：<span class="ph-value">N/A</span></div>
+                    <div id="tempValue">环境温度：25.0℃</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 校准对话框 -->
+    <div id="calibrationDialog" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">两点校准法</div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>标准pH 1:</label>
+                    <input type="number" id="ph1Entry" value="4.0" step="0.1">
+                </div>
+                <div class="input-group">
+                    <label>测量值 1:</label>
+                    <input type="number" id="val1Entry" value="3.8" step="0.1">
+                </div>
+                <div class="input-group">
+                    <label>标准pH 2:</label>
+                    <input type="number" id="ph2Entry" value="10.0" step="0.1">
+                </div>
+                <div class="input-group">
+                    <label>测量值 2:</label>
+                    <input type="number" id="val2Entry" value="9.7" step="0.1">
+                </div>
+                <div id="calibrationError" class="error-message"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="applyCalibrationBtn" class="btn btn-primary">应用校准</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 错误对话框 -->
+    <div id="errorDialog" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">错误提示</div>
+            <div class="modal-body">
+                <div id="errorMessage">发生未知错误</div>
+            </div>
+            <div class="modal-footer">
+                <button id="closeErrorBtn" class="btn">确定</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 文件输入（隐藏） -->
+    <input type="file" id="imageInput" accept="image/*" style="display: none;">
+    
+    <script>
+        // 全局变量和常量
+        const REGRESSION_PARAMS = {
+            intercept: 2.8350,
+            X: 0.2462,
+            Y: -0.9313,
+            Z: 6.8470,
+            X2: 0.1505,
+            XY: -0.2877,
+            XZ: -0.6802,
+            Y2: 0.1862,
+            YZ: 0.4183,
+            Z2: -0.6433,
+            R2: 0.9532
+        };
+        
+        const STATE = {
+            imageLoaded: false,
+            calibrationParams: {
+                slope: 1.0,
+                intercept: 0.0
+            },
+            currentXYZ: [0, 0, 0],
+            ctx: null,
+            chart: null
+        };
+        
+        // DOM 元素
+        const dom = {
+            dropArea: document.getElementById('dropArea'),
+            dropText: document.getElementById('dropText'),
+            canvasContainer: document.getElementById('canvasContainer'),
+            imageCanvas: document.getElementById('imageCanvas'),
+            imageInput: document.getElementById('imageInput'),
+            loadImageBtn: document.getElementById('loadImageBtn'),
+            calibrateBtn: document.getElementById('calibrateBtn'),
+            calibrationDialog: document.getElementById('calibrationDialog'),
+            ph1Entry: document.getElementById('ph1Entry'),
+            val1Entry: document.getElementById('val1Entry'),
+            ph2Entry: document.getElementById('ph2Entry'),
+            val2Entry: document.getElementById('val2Entry'),
+            applyCalibrationBtn: document.getElementById('applyCalibrationBtn'),
+            calibrationError: document.getElementById('calibrationError'),
+            xyzValue: document.getElementById('xyzValue'),
+            featureValue: document.getElementById('featureValue'),
+            pixelColor: document.getElementById('pixelColor'),
+            phResult: document.querySelector('.ph-value'),
+            errorDialog: document.getElementById('errorDialog'),
+            errorMessage: document.getElementById('errorMessage'),
+            closeErrorBtn: document.getElementById('closeErrorBtn'),
+            pixelIndicator: document.getElementById('pixelIndicator'),
+            chartCanvas: document.getElementById('chartCanvas')
+        };
+        
+        // 初始化函数
+        function init() {
+            setupEventListeners();
+            initChart();
+        }
+        
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 图像加载按钮
+            dom.loadImageBtn.addEventListener('click', () => {
+                dom.imageInput.click();
+            });
+            
+            // 文件输入变化
+            dom.imageInput.addEventListener('change', handleImageFile);
+            
+            // 拖放事件
+            dom.dropArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dom.dropArea.classList.add('highlight');
+            });
+            
+            dom.dropArea.addEventListener('dragleave', () => {
+                dom.dropArea.classList.remove('highlight');
+            });
+            
+            dom.dropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dom.dropArea.classList.remove('highlight');
+                
+                if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    loadImageFromFile(e.dataTransfer.files[0]);
+                }
+            });
+            
+            // 点击选择图像
+            dom.dropArea.addEventListener('click', () => {
+                dom.imageInput.click();
+            });
+            
+            // 校准按钮
+            dom.calibrateBtn.addEventListener('click', () => {
+                dom.calibrationDialog.style.display = 'flex';
+                dom.calibrationError.textContent = '';
+            });
+            
+            // 应用校准
+            dom.applyCalibrationBtn.addEventListener('click', applyCalibration);
+            
+            // 关闭错误对话框
+            dom.closeErrorBtn.addEventListener('click', () => {
+                dom.errorDialog.style.display = 'none';
+            });
+            
+            // 图像点击获取颜色
+            dom.imageCanvas.addEventListener('click', handleImageClick);
+        }
+        
+        // 处理图像文件选择
+        function handleImageFile(e) {
+            const file = e.target.files[0];
+            if (file) {
+                loadImageFromFile(file);
+            }
+        }
+        
+        // 从文件加载图像
+        function loadImageFromFile(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    setupImageCanvas(img);
+                };
+                img.src = e.target.result;
+            };
+            
+            reader.readAsDataURL(file);
+        }
+        
+        // 设置图像画布
+        function setupImageCanvas(img) {
+            STATE.imageLoaded = true;
+            dom.dropText.style.display = 'none';
+            dom.canvasContainer.style.display = 'block';
+            
+            // 设置画布尺寸（考虑宽高比）
+            const maxWidth = dom.dropArea.clientWidth - 40;
+            const maxHeight = dom.dropArea.clientHeight - 40;
+            let width = img.width;
+            let height = img.height;
+            
+            if (width > maxWidth) {
+                const ratio = maxWidth / width;
+                width = maxWidth;
+                height = height * ratio;
+            }
+            
+            if (height > maxHeight) {
+                const ratio = maxHeight / height;
+                height = maxHeight;
+                width = width * ratio;
+            }
+            
+            dom.imageCanvas.width = width;
+            dom.imageCanvas.height = height;
+            
+            // 绘制图像
+            STATE.ctx = dom.imageCanvas.getContext('2d');
+            STATE.ctx.drawImage(img, 0, 0, width, height);
+        }
+        
+        // 处理图像点击
+        function handleImageClick(e) {
+            if (!STATE.imageLoaded) return;
+            
+            const rect = dom.imageCanvas.getBoundingClientRect();
+            const x = Math.round(e.clientX - rect.left);
+            const y = Math.round(e.clientY - rect.top);
+            
+            // 显示像素指示器
+            dom.pixelIndicator.style.left = e.clientX + 'px';
+            dom.pixelIndicator.style.top = e.clientY + 'px';
+            dom.pixelIndicator.style.display = 'block';
+            setTimeout(() => {
+                dom.pixelIndicator.style.display = 'none';
+            }, 1500);
+            
+            // 获取像素颜色
+            const pixel = STATE.ctx.getImageData(x, y, 1, 1).data;
+            const rgb = [pixel[0], pixel[1], pixel[2]];
+            
+            // 更新显示
+            updatePixelColorDisplay(rgb);
+            
+            // 计算XYZ
+            const xyz = rgb_to_xyz(rgb);
+            STATE.currentXYZ = xyz;
+            
+            // 更新计算结果
+            updatePHCalculation();
+        }
+        
+        // 更新颜色显示
+        function updatePixelColorDisplay(rgb) {
+            const colorDiv = `<div style="display:flex;align-items:center;margin-top:10px;">
+                                <div style="width:20px;height:20px;background:rgb(${rgb[0]},${rgb[1]},${rgb[2]});border:1px solid #ddd;"></div>
+                                <span style="margin-left:10px;">RGB: (${rgb[0]}, ${rgb[1]}, ${rgb[2]})</span>
+                              </div>`;
+            dom.pixelColor.innerHTML = colorDiv;
+        }
+        
+        // 计算XYZ
+        function rgb_to_xyz(rgb) {
+            function inverse_gamma(u) {
+                return u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4);
+            }
+            
+            const r = inverse_gamma(rgb[0] / 255.0);
+            const g = inverse_gamma(rgb[1] / 255.0);
+            const b = inverse_gamma(rgb[2] / 255.0);
+            
+            const matrix = [
+                [0.4124564, 0.3575761, 0.1804375],
+                [0.2126729, 0.7151522, 0.0721750],
+                [0.0193339, 0.1191920, 0.9503041]
+            ];
+            
+            const x = matrix[0][0] * r + matrix[0][1] * g + matrix[0][2] * b;
+            const y = matrix[1][0] * r + matrix[1][1] * g + matrix[1][2] * b;
+            const z = matrix[2][0] * r + matrix[2][1] * g + matrix[2][2] * b;
+            
+            return [x * 100, y * 100, z * 100];
+        }
+        
+        // 计算pH值
+        function calculate_ph(X, Y, Z) {
+            return (
+                REGRESSION_PARAMS.intercept +
+                REGRESSION_PARAMS.X * X +
+                REGRESSION_PARAMS.Y * Y +
+                REGRESSION_PARAMS.Z * Z +
+                REGRESSION_PARAMS.X2 * Math.pow(X, 2) +
+                REGRESSION_PARAMS.XY * (X * Y) +
+                REGRESSION_PARAMS.XZ * (X * Z) +
+                REGRESSION_PARAMS.Y2 * Math.pow(Y, 2) +
+                REGRESSION_PARAMS.YZ * (Y * Z) +
+                REGRESSION_PARAMS.Z2 * Math.pow(Z, 2)
+            );
+        }
+        
+        // 更新pH计算结果
+        function updatePHCalculation() {
+            const [X, Y, Z] = STATE.currentXYZ;
+            dom.xyzValue.textContent = `XYZ值：(${X.toFixed(2)}, ${Y.toFixed(2)}, ${Z.toFixed(2)})`;
+            
+            try {
+                // 计算原始pH值
+                const ph_raw = calculate_ph(X, Y, Z);
+                
+                // 应用校准
+                const ph_calibrated = ph_raw * STATE.calibrationParams.slope + 
+                                   STATE.calibrationParams.intercept;
+                
+                // 更新特征值显示
+                dom.featureValue.innerHTML = `
+                    特征值：<br>
+                    X = ${X.toFixed(1)} | Y = ${Y.toFixed(1)} | Z = ${Z.toFixed(1)}<br>
+                    X² = ${Math.pow(X, 2).toFixed(1)} | XY = ${(X*Y).toFixed(1)} | XZ = ${(X*Z).toFixed(1)}<br>
+                    Y² = ${Math.pow(Y, 2).toFixed(1)} | YZ = ${(Y*Z).toFixed(1)} | Z² = ${Math.pow(Z, 2).toFixed(1)}
+                `;
+                
+                // 更新pH结果显示
+                dom.phResult.textContent = ph_calibrated.toFixed(2);
+                
+                // 更新图表
+                updateChart();
+            } catch (e) {
+                showError(`计算错误: ${e.message}`);
+            }
+        }
+        
+        // 初始化图表
+        function initChart() {
+            const ctx = dom.chartCanvas.getContext('2d');
+            
+            STATE.chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'pH预测曲线',
+                        data: [],
+                        borderColor: '#006400',
+                        backgroundColor: 'rgba(0, 100, 0, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: '当前测量点',
+                        data: [],
+                        borderColor: 'red',
+                        backgroundColor: 'red',
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        pointStyle: 'circle',
+                        showLine: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 14,
+                            title: {
+                                display: true,
+                                text: 'pH值',
+                                font: {
+                                    size: 14,
+                                    family: "'Microsoft YaHei', sans-serif"
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '主成分X变化范围',
+                                font: {
+                                    size: 14,
+                                    family: "'Microsoft YaHei', sans-serif"
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    family: "'Microsoft YaHei', sans-serif",
+                                    size: 14
+                                }
+                            }
+                        },
+                        title: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 更新图表
+        function updateChart() {
+            const [X, Y, Z] = STATE.currentXYZ;
+            const startX = Math.max(0, X * 0.85);
+            const endX = Math.min(100, X * 1.15);
+            
+            // 生成数据点
+            const labels = [];
+            const dataPoints = [];
+            const steps = 30;
+            
+            for (let i = 0; i <= steps; i++) {
+                const xVal = startX + (endX - startX) * (i / steps);
+                const ph = calculate_ph(xVal, Y, Z);
+                labels.push(xVal.toFixed(1));
+                dataPoints.push({x: xVal, y: ph});
+            }
+            
+            // 设置图表数据
+            STATE.chart.data.labels = labels;
+            STATE.chart.data.datasets[0].data = dataPoints;
+            STATE.chart.data.datasets[1].data = [{x: X, y: calculate_ph(X, Y, Z)}];
+            
+            // 更新图表标题
+            STATE.chart.options.scales.x.title.text = 
+                `主成分X变化范围 (固定Y=${Y.toFixed(1)}, Z=${Z.toFixed(1)})`;
+            
+            STATE.chart.update();
+        }
+        
+        // 应用校准
+        function applyCalibration() {
+            const ph1 = parseFloat(dom.ph1Entry.value);
+            const m1 = parseFloat(dom.val1Entry.value);
+            const ph2 = parseFloat(dom.ph2Entry.value);
+            const m2 = parseFloat(dom.val2Entry.value);
+            
+            // 输入验证
+            if (isNaN(ph1) || isNaN(m1) || isNaN(ph2) || isNaN(m2)) {
+                dom.calibrationError.textContent = '所有字段必须为有效数字';
+                return;
+            }
+            
+            // 计算斜率和截距
+            const slope = (ph2 - ph1) / (m2 - m1);
+            const intercept = ph1 - slope * m1;
+            
+            // 更新校准参数
+            STATE.calibrationParams = {slope, intercept};
+            
+            // 关闭对话框
+            dom.calibrationDialog.style.display = 'none';
+            
+            // 如果有当前值，更新显示
+            if (STATE.imageLoaded) {
+                updatePHCalculation();
+            }
+        }
+        
+        // 显示错误信息
+        function showError(message) {
+            dom.errorMessage.textContent = message;
+            dom.errorDialog.style.display = 'flex';
+        }
+        
+        // 页面加载完成后初始化
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
